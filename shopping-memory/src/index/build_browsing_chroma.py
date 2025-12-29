@@ -39,17 +39,32 @@ def main():
     data_path = Path("data/page_docs.jsonl")
     rows = load_jsonl(data_path)
 
-    # Keep only rows with some text
-    rows = [r for r in rows if r.get("text") and len(r["text"].strip()) > 200]
-    print(f"Loaded {len(rows)} page docs with usable text")
+    rows = [
+        r for r in rows
+        if r.get("text_for_embedding")
+        and len(r["text_for_embedding"].strip()) > 40
+        and "block response" not in r["text_for_embedding"].lower()
+    ]
+    print(f"Loaded {len(rows)} page docs with usable text_for_embedding")
+
+    # Dedupe by id (keep the first occurrence)
+    unique = {}
+    for r in rows:
+        unique[r["id"]] = r
+    rows = list(unique.values())
+    print(f"After dedupe: {len(rows)} unique docs")
 
     # Persistent Chroma on disk
     chroma_client = chromadb.PersistentClient(path="chroma_db")
-    collection = chroma_client.get_or_create_collection(name="browsing_memory")
+    try:
+        chroma_client.delete_collection(name="browsing_memory")
+    except Exception:
+        pass
+    collection = chroma_client.create_collection(name="browsing_memory")
 
     # Prepare fields
     ids = [r["id"] for r in rows]
-    documents = [r["text"] for r in rows]
+    documents = [r.get("text_for_embedding", r["text"]) for r in rows]
 
     # Flatten metadata for easier filtering later
     metadatas = []
@@ -63,7 +78,10 @@ def main():
             "timestamp": md.get("timestamp", ""),
             "price": md.get("price", None),
             "currency": md.get("currency", "USD"),
+            "canonical_url": md.get("canonical_url", ""),  
+            "norm_url": md.get("norm_url", ""),            
         })
+
 
     # Batch embeddings to avoid huge requests
     BATCH_SIZE = 25

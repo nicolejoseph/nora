@@ -2,11 +2,21 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+import hashlib
+from urllib.parse import urlsplit, urlunsplit
 
 from playwright.sync_api import sync_playwright
 
 
 PRICE_RE = re.compile(r"\$ ?\d{1,3}(?:,\d{3})*(?:\.\d{2})?")
+
+def stable_id_from_url(url):
+    # Create a stable ID from the URL so small differences in query params don't cause mismatches.
+    return hashlib.sha1(url.encode("utf-8")).hexdigest()
+
+def drop_query_and_fragment(url):
+    parts = urlsplit(url)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
 
 
 def load_urls(path):
@@ -44,11 +54,13 @@ def guess_price(text):
     except Exception:
         return None
 
-
 def build_record(url_row, title, text, price):
     # Unified schema (works for Part 1 + Part 2)
+    norm = url_row.get("norm_url") or url_row.get("url") or ""
+    canonical = drop_query_and_fragment(norm)  # stable across runs
+
     record = {
-        "id": url_row.get("norm_url") or url_row.get("url"),
+        "id": stable_id_from_url(canonical),   # stable ID
         "source": "history_page",
         "url": url_row.get("url", ""),
         "title": title or url_row.get("title", ""),
@@ -56,13 +68,17 @@ def build_record(url_row, title, text, price):
         "metadata": {
             "domain": url_row.get("domain", ""),
             "timestamp": url_row.get("visited_at", ""),
-            "price": price,          # numeric or None
+            "price": price,
             "currency": "USD",
             "brand": None,
             "category": None,
             "tags": [],
+            "norm_url": norm,                  # keep for debugging
+            "canonical_url": canonical,        # keep for debugging
         },
     }
+
+    record["text_for_embedding"] = clean_for_embedding(record["title"], record["text"])
     return record
 
 
@@ -110,6 +126,31 @@ def fetch_pages(url_records, out_jsonl_path, limit=10, headless=True):
         browser.close()
 
     return written
+
+def clean_for_embedding(title, text, max_chars=3000):
+    # Remove lines that are usually navigation / boilerplate
+    bad_line_starts = (
+        "skip to", "search", "cart", "account", "returns", "orders",
+        "deliver", "sign in", "customer reviews", "privacy", "terms"
+    )
+
+    lines = [ln.strip() for ln in (text or "").splitlines()]
+    kept = []
+    for ln in lines:
+        if not ln:
+            continue
+        low = ln.lower()
+        if any(low.startswith(s) for s in bad_line_starts):
+            continue
+        # drop super-short nav-like tokens
+        if len(ln) <= 2:
+            continue
+        kept.append(ln)
+
+    cleaned = " ".join(kept)
+    cleaned = cleaned[:max_chars]
+    return (title or "") + "\n" + cleaned
+
 
 # Note: important for testing single links (i.e. Amazon)
 def test_single_url(url):
