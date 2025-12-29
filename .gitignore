@@ -5,6 +5,8 @@ venv/
 # Ignore personal browsing history
 data/
 
+chroma_db/
+
 # Environment Variables
 .env
 .env.*

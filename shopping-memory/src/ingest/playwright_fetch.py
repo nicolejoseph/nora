@@ -136,5 +136,5 @@ if __name__ == "__main__":
 
     url_records = load_urls(urls_path)
     # Note to self: Use limit as needed, when testing the code
-    fetch_pages(url_records, out_path, limit=10, headless=True)
+    fetch_pages(url_records, out_path, limit=30, headless=True)
     print(f"Wrote: {out_path}")
