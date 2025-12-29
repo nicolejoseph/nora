@@ -4,3 +4,15 @@ venv/
 
 # Ignore personal browsing history
 data/
+
+# Environment Variables
+.env
+.env.*
+
+# Local Testing
+config_local.py
+
+# Other
+__pycache__/
+*.pyc
+*.py[cod]
