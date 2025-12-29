@@ -19,6 +19,9 @@ EXCLUDED_DOMAINS = [
     "docs.google.com/document",
     "linkedin.com",
     "chatgpt.com",
+    "accounts.google.com",
+    "shopwithaira.com",
+    "calendly.com",
     "localhost"
 ]
 
