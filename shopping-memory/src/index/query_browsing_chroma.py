@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import chromadb
 from openai import OpenAI
 
+# COLLECTION_TO_QUERY = "browsing_memory"
+COLLECTION_TO_QUERY = "shopify_products"
 
 def embed_query(openai_client, text, model="text-embedding-3-small"):
     resp = openai_client.embeddings.create(model=model, input=[text])
@@ -34,7 +36,7 @@ def main():
     openai_client = OpenAI(api_key=api_key)
 
     client = chromadb.PersistentClient(path="chroma_db")
-    collection = client.get_or_create_collection(name="browsing_memory")
+    collection = client.get_or_create_collection(name=COLLECTION_TO_QUERY)
 
     print(f"Collection count: {collection.count()}")
 
