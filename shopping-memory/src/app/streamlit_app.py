@@ -1,5 +1,5 @@
 # Run with:
-# streamlit run src/app/streamlit_app.py
+# python -m streamlit run src/app/streamlit_app.py
 
 import os
 
@@ -9,12 +9,18 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from src.llm.answer_from_memory import answer_from_memory
+from src.llm.recommender import recommend
 
 AVATARS = {
     "assistant": "🤖",  
     "user": "👤",       
 }
 
+# Use this simple helper function to route to correct chroma db collection
+def is_reco_query(q: str) -> bool:
+    q = (q or "").lower()
+    triggers = ["recommend", "recommendation", "alternatives", "alternative", "similar", "find me", "find alternatives", "find other"]
+    return any(t in q for t in triggers)
 
 def embed_query(client, text, model="text-embedding-3-small"):
     resp = client.embeddings.create(model=model, input=[text])
@@ -139,9 +145,26 @@ def main():
         with st.chat_message("assistant", avatar=AVATARS["assistant"]):
             with st.spinner("Thinking… 🧠"):
                 try:
-                    answer = answer_from_memory(user_q, k=6)
+                    if is_reco_query(user_q):
+                        out = recommend(user_q, n_recs=8)
+                        recs = out["recommendations"]
+
+                        lines = ["Here are some picks based on your browsing 🛍️:"]
+                        for r in recs:
+                            price = r.get("price")
+                            price_str = f"${price:.2f}" if isinstance(price, (int, float)) else ""
+                            title = r.get("title") or "(no title)"
+                            url = r.get("url") or ""
+                            lines.append(f"- **{title}** {price_str}\n  {url}")
+
+                        answer = "\n".join(lines)
+                        sources = []  # don't show browsing sources for recommender replies by default
+                    else:
+                        answer = answer_from_memory(user_q, k=6)
+                        sources = get_sources(user_q, k=6)
+
                 except Exception as e:
-                    st.error(f"Error calling answer_from_memory(): {e}")
+                    st.error(f"Error: {e}")
                     return
 
             st.markdown(answer)
