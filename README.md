@@ -113,6 +113,18 @@ The UI shows an optional **Sources used** expander with titles, domains, and URL
 
 ---
 
+## Frontend
+
+**Chat UI (main view):**
+
+![Frontend 1](images/nora-frontend1.JPG)
+
+**Recommendations:**
+
+![Frontend 2](images/nora-frontend2.JPG)
+
+---
+
 ## Project structure
 
 ```
